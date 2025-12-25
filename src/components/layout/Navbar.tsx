@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users, MessageSquare, LogOut, Menu, X } from "lucide-react";
+import { Users, MessageSquare, LogOut, Menu, X, ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -32,6 +32,12 @@ const Navbar = () => {
   const navLinks = [
     { path: "/alumni", label: "Alumni Directory", icon: Users },
     { path: "/community", label: "Community", icon: MessageSquare },
+    { 
+      path: "https://vitsitdepartment.vercel.app", 
+      label: "Meet the Department", 
+      icon: ExternalLink,
+      external: true 
+    },
   ];
 
   return (
@@ -45,20 +51,40 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-                  isActive(link.path)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                <link.icon className="w-4 h-4" />
-                <span className="text-sm font-medium">{link.label}</span>
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const isExternal = link.external;
+              const isCurrentPage = !isExternal && isActive(link.path);
+              
+              if (isExternal) {
+                return (
+                  <a
+                    key={link.path}
+                    href={link.path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  >
+                    <link.icon className="w-4 h-4" />
+                    <span className="text-sm font-medium">{link.label}</span>
+                  </a>
+                );
+              }
+              
+              return (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
+                    isCurrentPage
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <link.icon className="w-4 h-4" />
+                  <span className="text-sm font-medium">{link.label}</span>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Auth Buttons */}
@@ -93,21 +119,42 @@ const Navbar = () => {
         {isOpen && (
           <div className="md:hidden py-4 border-t border-border animate-fade-in">
             <div className="flex flex-col gap-2">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
-                    isActive(link.path)
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <link.icon className="w-5 h-5" />
-                  <span className="font-medium">{link.label}</span>
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const isExternal = link.external;
+                const isCurrentPage = !isExternal && isActive(link.path);
+                
+                if (isExternal) {
+                  return (
+                    <a
+                      key={link.path}
+                      href={link.path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    >
+                      <link.icon className="w-5 h-5" />
+                      <span className="font-medium">{link.label}</span>
+                    </a>
+                  );
+                }
+                
+                return (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                      isCurrentPage
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <link.icon className="w-5 h-5" />
+                    <span className="font-medium">{link.label}</span>
+                  </Link>
+                );
+              })}
               <div className="pt-4 border-t border-border mt-2">
                 {user ? (
                   <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
