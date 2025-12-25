@@ -8,6 +8,7 @@ interface LogoProps {
   showText?: boolean;
   variant?: 'default' | 'footer' | 'auth';
   showVaitLogo?: boolean;
+  showVitsLogo?: boolean;
 }
 
 const sizeClasses = {
@@ -30,10 +31,38 @@ const Logo: React.FC<LogoProps> = ({
   alt = 'VNITS Alumni Network Logo', 
   showText = false,
   variant = 'default',
-  showVaitLogo = true
+  showVaitLogo = true,
+  showVitsLogo = true
 }) => {
   return (
     <div className={cn('flex items-center gap-3', className)}>
+      {/* VITS Logo */}
+      {showVitsLogo && (
+        <img 
+          src="/vits.png" 
+          alt="VITS Logo"
+          className={cn(
+            'object-contain',
+            size === 'sm' && 'w-9 h-9',
+            size === 'md' && 'w-11 h-11',
+            size === 'lg' && 'w-15 h-15',
+            size === 'xl' && 'w-27 h-27',
+            variant === 'auth' && 'mx-auto mb-4 w-23 h-23',
+            variant === 'footer' && 'w-11 h-11'
+          )}
+          style={{
+            maxWidth: '100%',
+            height: 'auto'
+          }}
+          onError={(e) => {
+            // Fallback to icon if image fails to load
+            e.currentTarget.style.display = 'none';
+            const iconContainer = e.currentTarget.nextElementSibling as HTMLElement;
+            if (iconContainer) iconContainer.style.display = 'flex';
+          }}
+        />
+      )}
+      
       {/* VAIT Logo */}
       {showVaitLogo && (
         <img 

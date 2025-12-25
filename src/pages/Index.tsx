@@ -44,7 +44,7 @@ const Index = () => {
             <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 mb-12">
               {/* Logo Section */}
               <div className="flex-shrink-0 animate-fade-in">
-                <Logo size="xl" showVaitLogo={false} />
+                <Logo size="xl" showVaitLogo={false} showVitsLogo={false} />
               </div>
               
               {/* College and Department Info */}
