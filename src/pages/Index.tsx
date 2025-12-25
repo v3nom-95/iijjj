@@ -24,9 +24,9 @@ const Index = () => {
   ];
 
   const stats = [
-    { value: "1000+", label: "Alumni Network" },
-    { value: "50+", label: "Companies Represented" },
-    { value: "15+", label: "Years of Excellence" },
+    { value: "200+", label: "Alumni Network" },
+    { value: "15+", label: "Companies Represented" },
+    { value: "5+", label: "Years of Excellence" },
   ];
 
   return (
@@ -164,7 +164,7 @@ const Index = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <Logo size="md" variant="footer" />
             <p className="text-sm text-muted-foreground">
-              © 2024 Vignan Institute of Technology & Science. All rights reserved.
+              © 2026 Department of Information Technology. Developed by NextGen-DSDC.
             </p>
           </div>
         </div>
