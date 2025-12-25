@@ -412,17 +412,7 @@ const Alumni = () => {
           )}
 
           {/* Info Card */}
-          <Card className="mt-12 gradient-hero text-primary-foreground border-0">
-            <CardContent className="p-8 text-center">
-              <h3 className="font-display text-2xl font-bold mb-3">
-                Data Powered by Google Sheets
-              </h3>
-              <p className="text-primary-foreground/80 max-w-2xl mx-auto">
-                Our alumni directory is synced directly from the official IT Department database,
-                organized by batch year for easy navigation.
-              </p>
-            </CardContent>
-          </Card>
+          
         </div>
       </section>
     </div>
