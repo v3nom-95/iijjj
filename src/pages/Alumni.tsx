@@ -212,48 +212,68 @@ const Alumni = () => {
                   Showing {filteredAlumni.length} of {alumni.length} students
                 </Badge>
               </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredAlumni.map((a, index) => (
-                  <Card 
-                    key={`${a.batch}-${a.rollNo}`}
-                    className="group hover:shadow-medium transition-all duration-300 hover:-translate-y-1 animate-scale-in border-border"
-                    style={{ animationDelay: `${Math.min(index * 0.02, 0.5)}s` }}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="w-12 h-12 rounded-full gradient-hero flex items-center justify-center text-secondary font-display font-bold text-lg">
-                          {a.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {a.batch}
-                        </Badge>
+              
+              {/* Group by batch */}
+              {(selectedBatch === "All" ? batches : [selectedBatch]).map((batch) => {
+                const batchAlumni = filteredAlumni.filter(a => a.batch === batch);
+                if (batchAlumni.length === 0) return null;
+                
+                return (
+                  <div key={batch} className="mb-12">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-full gradient-hero flex items-center justify-center">
+                        <GraduationCap className="w-5 h-5 text-secondary" />
                       </div>
-                      <CardTitle className="font-display text-lg mt-3 capitalize">
-                        {a.name.toLowerCase()}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Hash className="w-4 h-4 flex-shrink-0" />
-                          <span className="font-mono">{a.rollNo}</span>
-                        </div>
-                        {a.email && (
-                          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                            <Mail className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                            <a 
-                              href={`mailto:${a.email}`}
-                              className="hover:text-primary transition-colors break-all"
-                            >
-                              {a.email.toLowerCase()}
-                            </a>
-                          </div>
-                        )}
+                      <div>
+                        <h2 className="font-display text-2xl font-bold text-foreground">
+                          Batch {batch}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                          {batchAlumni.length} students
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                    </div>
+                    
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {batchAlumni.map((a, index) => (
+                        <Card 
+                          key={`${a.batch}-${a.rollNo}`}
+                          className="group hover:shadow-medium transition-all duration-300 hover:-translate-y-1 animate-scale-in border-border"
+                          style={{ animationDelay: `${Math.min(index * 0.02, 0.5)}s` }}
+                        >
+                          <CardHeader className="pb-3">
+                            <div className="w-12 h-12 rounded-full gradient-hero flex items-center justify-center text-secondary font-display font-bold text-lg">
+                              {a.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
+                            </div>
+                            <CardTitle className="font-display text-lg mt-3 capitalize">
+                              {a.name.toLowerCase()}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Hash className="w-4 h-4 flex-shrink-0" />
+                                <span className="font-mono">{a.rollNo}</span>
+                              </div>
+                              {a.email && (
+                                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                                  <Mail className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                  <a 
+                                    href={`mailto:${a.email}`}
+                                    className="hover:text-primary transition-colors break-all"
+                                  >
+                                    {a.email.toLowerCase()}
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </>
           )}
 
