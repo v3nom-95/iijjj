@@ -1,36 +1,56 @@
-# Vercel Deployment MIME Type Fix Plan
+# VITS.png Vercel Deployment Fix
 
-## Problem Analysis ✅ COMPLETED
-The error "Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of 'text/html'" occurs because:
+## Issue: VITS.png not showing in Vercel deployment
 
-1. **Routing Conflict**: Current vercel.json rewrite rule `/((?!api/).*)` redirects ALL non-API requests to `/` (index.html)
-2. **Static Asset Interception**: JavaScript files like `/assets/main-DVfRlyY9.js` are being served as HTML
-3. **Multiple Redirect Configurations**: Both `_redirects` and `vercel.json` have conflicting routing rules
+## Steps to Fix:
 
-## Solution Plan
+### 1. Clear Vercel Cache
+- Go to your Vercel dashboard
+- Find your project
+- Go to "Settings" > "Functions" 
+- Click "Clear Cache" or redeploy with `--force` flag
 
-### Step 1: Fix vercel.json Routing Configuration
-- Remove or modify the catch-all rewrite rule that intercepts static assets
-- Ensure static assets (JS, CSS, images) are served directly without routing to index.html
-- Keep SPA routing only for actual routes that don't match static files
+### 2. Manual Redeploy
+```bash
+# If using Vercel CLI
+vercel --prod --force
 
-### Step 2: Update _redirects File  
-- Remove or modify the catch-all redirect that routes everything to index.html
-- Keep only necessary redirects for SPA routing
+# Or redeploy from Vercel dashboard
+```
 
-### Step 3: Verify MIME Type Headers
-- Ensure proper Content-Type headers are set for all static assets
-- Add specific headers for JavaScript modules
+### 3. Verify File Structure
+Ensure the file structure is correct:
+```
+public/
+├── vits.png          ← Should be here
+├── vait-logo.png     ← Working
+├── logo.png          ← Working
+└── other files...
+```
 
-### Step 4: Test Build Output
-- Verify that built assets are properly generated and accessible
-- Check asset naming and paths
+### 4. Check Image Format
+- Ensure vits.png is a valid PNG file
+- Try re-saving the image with a different PNG encoder if needed
+- Verify the image file isn't corrupted
 
-## Files to Modify:
-1. `vercel.json` - Update routing and headers
-2. `public/_redirects` - Remove problematic catch-all redirect
+### 5. Alternative: Use Different File Extension
+If the issue persists, try:
+- Renaming to vits.jpg (temporarily)
+- Or use a different filename like vite-logo.png
 
-## Expected Outcome:
-- JavaScript files served with correct MIME type (application/javascript)
-- Static assets load without routing interference
-- Website loads properly on all devices
+### 6. Vercel Build Logs
+Check the build logs in Vercel dashboard to see if there are any warnings about missing assets.
+
+### 7. Manual Upload
+If all else fails:
+- Download vits.png locally
+- Upload directly through Vercel dashboard
+- Or use Vercel CLI to upload manually
+
+## Quick Test Commands:
+```bash
+# Check if file exists in build output
+ls -la dist/
+
+# Verify the file is accessible
+curl -I https://your-domain.vercel.app/vits.png

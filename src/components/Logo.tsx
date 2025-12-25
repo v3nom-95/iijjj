@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import ImageDiagnostic from '@/components/ImageDiagnostic';
 
 interface LogoProps {
   className?: string;
@@ -38,8 +39,8 @@ const Logo: React.FC<LogoProps> = ({
     <div className={cn('flex items-center gap-3', className)}>
       {/* VITS Logo */}
       {showVitsLogo && (
-        <img 
-          src="/vits.png" 
+        <ImageDiagnostic
+          src="/vits.png"
           alt="VITS Logo"
           className={cn(
             'object-contain',
@@ -54,12 +55,7 @@ const Logo: React.FC<LogoProps> = ({
             maxWidth: '100%',
             height: 'auto'
           }}
-          onError={(e) => {
-            // Fallback to icon if image fails to load
-            e.currentTarget.style.display = 'none';
-            const iconContainer = e.currentTarget.nextElementSibling as HTMLElement;
-            if (iconContainer) iconContainer.style.display = 'flex';
-          }}
+          fallbackSrc="/vait-logo.png"
         />
       )}
       
