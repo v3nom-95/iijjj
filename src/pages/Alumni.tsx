@@ -1,51 +1,54 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/layout/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ExternalLink, Users, Filter, Building, Calendar, GraduationCap } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Search, Users, GraduationCap, Mail, Hash } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// Mock alumni data - In production, this would come from Google Sheets API
-const mockAlumniData = [
-  { id: 1, name: "Rajesh Kumar", batch: "2019", company: "Google", designation: "Software Engineer", linkedin: "#" },
-  { id: 2, name: "Priya Sharma", batch: "2019", company: "Microsoft", designation: "Product Manager", linkedin: "#" },
-  { id: 3, name: "Arun Reddy", batch: "2020", company: "Amazon", designation: "SDE II", linkedin: "#" },
-  { id: 4, name: "Sneha Patel", batch: "2020", company: "TCS", designation: "Tech Lead", linkedin: "#" },
-  { id: 5, name: "Vikram Singh", batch: "2020", company: "Infosys", designation: "Consultant", linkedin: "#" },
-  { id: 6, name: "Meera Nair", batch: "2021", company: "Wipro", designation: "Developer", linkedin: "#" },
-  { id: 7, name: "Rahul Verma", batch: "2021", company: "Accenture", designation: "Analyst", linkedin: "#" },
-  { id: 8, name: "Ananya Gupta", batch: "2021", company: "Deloitte", designation: "Consultant", linkedin: "#" },
-  { id: 9, name: "Karthik Iyer", batch: "2019", company: "Meta", designation: "Staff Engineer", linkedin: "#" },
-  { id: 10, name: "Divya Menon", batch: "2020", company: "Netflix", designation: "Senior Developer", linkedin: "#" },
-];
-
-const batchYears = ["All", "2019", "2020", "2021", "2022", "2023", "2024"];
+interface Alumni {
+  rollNo: string;
+  name: string;
+  email: string;
+}
 
 const Alumni = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBatch, setSelectedBatch] = useState("All");
+  const [alumni, setAlumni] = useState<Alumni[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredAlumni = mockAlumniData.filter((alumni) => {
-    const matchesSearch = 
-      alumni.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      alumni.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      alumni.designation.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesBatch = selectedBatch === "All" || alumni.batch === selectedBatch;
-    return matchesSearch && matchesBatch;
+  useEffect(() => {
+    const fetchAlumni = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase.functions.invoke('fetch-alumni');
+        
+        if (error) throw error;
+        
+        if (data?.alumni) {
+          setAlumni(data.alumni);
+        }
+      } catch (err) {
+        console.error('Error fetching alumni:', err);
+        setError('Failed to load alumni data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAlumni();
+  }, []);
+
+  const filteredAlumni = alumni.filter((a) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      a.name.toLowerCase().includes(query) ||
+      a.email.toLowerCase().includes(query) ||
+      a.rollNo.toLowerCase().includes(query)
+    );
   });
-
-  const batchStats = batchYears.slice(1).map(year => ({
-    year,
-    count: mockAlumniData.filter(a => a.batch === year).length
-  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,14 +62,14 @@ const Alumni = () => {
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 text-secondary mb-6">
               <Users className="w-4 h-4" />
-              <span className="text-sm font-medium">{mockAlumniData.length}+ Alumni Connected</span>
+              <span className="text-sm font-medium">{alumni.length}+ Students</span>
             </div>
             
             <h1 className="font-display text-4xl md:text-5xl font-bold text-primary-foreground mb-4">
               Alumni Directory
             </h1>
             <p className="text-lg text-primary-foreground/80 mb-8">
-              Explore our network of accomplished IT professionals across the globe.
+              IT Department - VIGNAN Institute of Technology & Science
             </p>
           </div>
         </div>
@@ -75,59 +78,17 @@ const Alumni = () => {
       {/* Filters Section */}
       <section className="py-8 bg-card border-b border-border sticky top-16 z-30 shadow-soft">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="relative flex-1 max-w-md w-full">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-center">
+            <div className="relative flex-1 max-w-lg w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search by name, company, or role..."
+                placeholder="Search by name, email, or roll number..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 h-12"
               />
             </div>
-
-            <div className="flex items-center gap-4 w-full md:w-auto">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Batch:</span>
-              </div>
-              <Select value={selectedBatch} onValueChange={setSelectedBatch}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Select batch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {batchYears.map((year) => (
-                    <SelectItem key={year} value={year}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Batch Stats */}
-      <section className="py-6 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {batchStats.map((stat) => (
-              <button
-                key={stat.year}
-                onClick={() => setSelectedBatch(stat.year)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-                  selectedBatch === stat.year
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card border border-border hover:border-primary/50"
-                }`}
-              >
-                <Calendar className="w-4 h-4" />
-                Batch {stat.year}
-                <Badge variant="secondary" className="ml-1">{stat.count}</Badge>
-              </button>
-            ))}
           </div>
         </div>
       </section>
@@ -135,62 +96,82 @@ const Alumni = () => {
       {/* Alumni Grid */}
       <section className="py-12">
         <div className="container mx-auto px-4">
-          {filteredAlumni.length === 0 ? (
+          {loading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Card key={i} className="border-border">
+                  <CardHeader className="pb-3">
+                    <Skeleton className="w-12 h-12 rounded-full" />
+                    <Skeleton className="h-5 w-3/4 mt-3" />
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-16">
+              <GraduationCap className="w-16 h-16 text-destructive mx-auto mb-4" />
+              <h3 className="font-display text-xl font-semibold text-foreground mb-2">
+                Error Loading Data
+              </h3>
+              <p className="text-muted-foreground">{error}</p>
+            </div>
+          ) : filteredAlumni.length === 0 ? (
             <div className="text-center py-16">
               <GraduationCap className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="font-display text-xl font-semibold text-foreground mb-2">
                 No Alumni Found
               </h3>
               <p className="text-muted-foreground">
-                Try adjusting your search or filter criteria.
+                Try adjusting your search criteria.
               </p>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredAlumni.map((alumni, index) => (
-                <Card 
-                  key={alumni.id}
-                  className="group hover:shadow-medium transition-all duration-300 hover:-translate-y-1 animate-scale-in border-border"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
+            <>
+              <div className="mb-6 text-center">
+                <Badge variant="secondary" className="text-sm">
+                  Showing {filteredAlumni.length} of {alumni.length} students
+                </Badge>
+              </div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredAlumni.map((a, index) => (
+                  <Card 
+                    key={a.rollNo}
+                    className="group hover:shadow-medium transition-all duration-300 hover:-translate-y-1 animate-scale-in border-border"
+                    style={{ animationDelay: `${Math.min(index * 0.02, 0.5)}s` }}
+                  >
+                    <CardHeader className="pb-3">
                       <div className="w-12 h-12 rounded-full gradient-hero flex items-center justify-center text-secondary font-display font-bold text-lg">
-                        {alumni.name.split(" ").map(n => n[0]).join("")}
+                        {a.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
                       </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {alumni.batch}
-                      </Badge>
-                    </div>
-                    <CardTitle className="font-display text-lg mt-3">
-                      {alumni.name}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building className="w-4 h-4" />
-                        <span>{alumni.company}</span>
+                      <CardTitle className="font-display text-lg mt-3 capitalize">
+                        {a.name.toLowerCase()}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Hash className="w-4 h-4 flex-shrink-0" />
+                          <span className="font-mono">{a.rollNo}</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <Mail className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                          <a 
+                            href={`mailto:${a.email}`}
+                            className="hover:text-primary transition-colors break-all"
+                          >
+                            {a.email.toLowerCase()}
+                          </a>
+                        </div>
                       </div>
-                      <p className="text-sm font-medium text-foreground">
-                        {alumni.designation}
-                      </p>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                      asChild
-                    >
-                      <a href={alumni.linkedin} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Connect
-                      </a>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
 
           {/* Info Card */}
@@ -200,8 +181,8 @@ const Alumni = () => {
                 Data Powered by Google Sheets
               </h3>
               <p className="text-primary-foreground/80 max-w-2xl mx-auto">
-                Our alumni directory is maintained through a collaborative Google Sheets database, 
-                organized by batch year with individual sheet links for detailed information.
+                Our alumni directory is synced directly from the official IT Department database,
+                ensuring up-to-date information for all students.
               </p>
             </CardContent>
           </Card>
