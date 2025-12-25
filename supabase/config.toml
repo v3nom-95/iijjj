@@ -1,1 +1,4 @@
 project_id = "nxiyeedxtdmwyraidznk"
+
+[functions.fetch-alumni]
+verify_jwt = false
