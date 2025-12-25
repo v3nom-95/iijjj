@@ -29,23 +29,158 @@ const Alumni = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Direct fetch from Google Sheets (fallback if edge function fails)
+  const fetchAlumniDirect = async () => {
+    try {
+      console.log('Fetching alumni directly from Google Sheets...');
+      const INDEX_SHEET_ID = '15levddFZV4KJov4wey-osN5Ul4Dzc7UYEH2Gb0Z83i8';
+      const indexCsvUrl = `https://docs.google.com/spreadsheets/d/${INDEX_SHEET_ID}/export?format=csv&gid=0`;
+      
+      const indexResponse = await fetch(indexCsvUrl);
+      if (!indexResponse.ok) {
+        console.error('Failed to fetch index sheet');
+        return null;
+      }
+      
+      const indexCsv = await indexResponse.text();
+      console.log('Index CSV fetched, parsing...');
+      
+      const lines = indexCsv.split('\n');
+      let fixedLines = [];
+      let i = 0;
+      while (i < lines.length) {
+        let line = lines[i];
+        // Join multiline URLs
+        while (i + 1 < lines.length) {
+          const nextLine = lines[i + 1];
+          const isContinuation = nextLine && !nextLine.includes(',') && !nextLine.match(/^\w+,/);
+          if (isContinuation) {
+            line += nextLine;
+            i++;
+          } else {
+            break;
+          }
+        }
+        fixedLines.push(line);
+        i++;
+      }
+      
+      const batchLines = fixedLines.filter(l => l.trim());
+      const allAlumni: Alumni[] = [];
+      
+      // Parse batches and fetch each
+      for (let i = 1; i < batchLines.length; i++) {
+        const parts = batchLines[i].split(',');
+        const batch = parts[0]?.trim();
+        const sheetUrl = parts[1]?.trim();
+        
+        if (!batch || !sheetUrl || !sheetUrl.includes('docs.google.com')) continue;
+        
+        try {
+          const sheetIdMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          const gidMatch = sheetUrl.match(/gid=(\d+)/);
+          
+          if (!sheetIdMatch) continue;
+          
+          const sheetId = sheetIdMatch[1];
+          const gid = gidMatch ? gidMatch[1] : '0';
+          
+          const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+          const csvResponse = await fetch(csvUrl);
+          if (!csvResponse.ok) continue;
+          
+          const csvText = await csvResponse.text();
+          const dataLines = csvText.split('\n').filter(l => l.trim());
+          
+          // Find header row
+          let headerIdx = 0;
+          for (let j = 0; j < Math.min(5, dataLines.length); j++) {
+            if (dataLines[j].toLowerCase().includes('roll') || dataLines[j].toLowerCase().includes('name')) {
+              headerIdx = j;
+              break;
+            }
+          }
+          
+          const headers = dataLines[headerIdx].split(',').map(h => h.toLowerCase().trim());
+          let rollNoIdx = -1, nameIdx = -1, emailIdx = -1;
+          
+          for (let k = 0; k < headers.length; k++) {
+            const h = headers[k];
+            if (h.includes('roll') || h.includes('no')) rollNoIdx = k;
+            if (h.includes('name')) nameIdx = k;
+            if (h.includes('email')) emailIdx = k;
+          }
+          
+          // Parse students
+          for (let j = headerIdx + 1; j < dataLines.length; j++) {
+            const columns = dataLines[j].split(',');
+            const rollNo = rollNoIdx >= 0 && columns[rollNoIdx] ? columns[rollNoIdx].trim() : '';
+            const name = nameIdx >= 0 && columns[nameIdx] ? columns[nameIdx].trim() : '';
+            const email = emailIdx >= 0 && columns[emailIdx] ? columns[emailIdx].trim() : '';
+            
+            if (!rollNo || !name) continue;
+            
+            allAlumni.push({
+              rollNo,
+              name,
+              email: email || '',
+              batch
+            });
+          }
+          
+          console.log(`Fetched ${allAlumni.filter(a => a.batch === batch).length} students from batch ${batch}`);
+        } catch (err) {
+          console.error(`Error fetching batch ${batch}:`, err);
+        }
+      }
+      
+      const batchList = [...new Set(allAlumni.map(a => a.batch))].sort((a, b) => b.localeCompare(a));
+      return { alumni: allAlumni, batches: batchList };
+    } catch (err) {
+      console.error('Direct fetch error:', err);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const fetchAlumni = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase.functions.invoke('fetch-alumni');
+        setError(null);
         
-        if (error) throw error;
+        // Try edge function first
+        let data = null;
+        try {
+          const response = await supabase.functions.invoke('fetch-alumni');
+          if (response.data) {
+            data = response.data;
+          }
+        } catch (err) {
+          console.warn('Edge function failed, trying direct fetch:', err);
+        }
+        
+        // Fallback to direct fetch if edge function fails
+        if (!data || !data.alumni) {
+          data = await fetchAlumniDirect();
+        }
         
         if (data?.alumni) {
-          setAlumni(data.alumni);
+          const sortedAlumni = [...data.alumni].sort((a, b) => {
+            const batchCompare = b.batch.localeCompare(a.batch);
+            if (batchCompare !== 0) return batchCompare;
+            // Sort by roll number within each batch
+            return a.rollNo.localeCompare(b.rollNo, undefined, { numeric: true });
+          });
+          setAlumni(sortedAlumni);
         }
+        
         if (data?.batches) {
-          setBatches(data.batches);
+          const sortedBatches = [...data.batches].sort((a, b) => b.localeCompare(a));
+          setBatches(sortedBatches);
         }
       } catch (err) {
         console.error('Error fetching alumni:', err);
-        setError('Failed to load alumni data');
+        setError('Failed to load alumni data. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -245,16 +380,15 @@ const Alumni = () => {
                             <div className="w-12 h-12 rounded-full gradient-hero flex items-center justify-center text-secondary font-display font-bold text-lg">
                               {a.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
                             </div>
-                            <CardTitle className="font-display text-lg mt-3 capitalize">
-                              {a.name.toLowerCase()}
-                            </CardTitle>
+                            <div className="mt-3">
+                              <p className="text-xs text-muted-foreground font-mono mb-1">{a.rollNo}</p>
+                              <CardTitle className="font-display text-lg capitalize">
+                                {a.name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
+                              </CardTitle>
+                            </div>
                           </CardHeader>
                           <CardContent className="pt-0">
                             <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Hash className="w-4 h-4 flex-shrink-0" />
-                                <span className="font-mono">{a.rollNo}</span>
-                              </div>
                               {a.email && (
                                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
                                   <Mail className="w-4 h-4 flex-shrink-0 mt-0.5" />

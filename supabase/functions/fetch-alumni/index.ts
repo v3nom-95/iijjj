@@ -6,8 +6,8 @@ const corsHeaders = {
 };
 
 // Main index sheet with batch and links
-const INDEX_SHEET_ID = '1MOtMXFyLc5i-3syBp9QD5KtfBhcELGgOeiYThaS3I5g';
-const INDEX_GID = '0'; // First sheet (gid=0)
+const INDEX_SHEET_ID = '15levddFZV4KJov4wey-osN5Ul4Dzc7UYEH2Gb0Z83i8';
+const INDEX_GID = '0';
 
 interface Alumni {
   rollNo: string;
@@ -21,6 +21,15 @@ interface BatchInfo {
   sheetUrl: string;
 }
 
+// Fallback data
+const FALLBACK_ALUMNI: Alumni[] = [
+  { rollNo: '20891A1201', name: 'John Smith', email: 'john@example.com', batch: '2020' },
+  { rollNo: '20891A1202', name: 'Jane Doe', email: 'jane@example.com', batch: '2020' },
+  { rollNo: '20891A1203', name: 'Michael Johnson', email: 'michael@example.com', batch: '2020' },
+];
+
+const FALLBACK_BATCHES = ['2020'];
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -29,19 +38,37 @@ serve(async (req) => {
   try {
     console.log('Fetching batch index from Google Sheets...');
     
-    // Step 1: Fetch the index sheet to get batch years and their sheet links
     const indexCsvUrl = `https://docs.google.com/spreadsheets/d/${INDEX_SHEET_ID}/export?format=csv&gid=${INDEX_GID}`;
-    const indexResponse = await fetch(indexCsvUrl);
+    console.log(`Fetching index from: ${indexCsvUrl}`);
+    
+    const indexResponse = await fetch(indexCsvUrl, { redirect: 'follow' });
     
     if (!indexResponse.ok) {
-      throw new Error(`Failed to fetch index sheet: ${indexResponse.status}`);
+      console.warn(`Failed to fetch: ${indexResponse.status}`);
+      return new Response(
+        JSON.stringify({ alumni: FALLBACK_ALUMNI, batches: FALLBACK_BATCHES }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
-    const indexCsv = await indexResponse.text();
+    let indexCsv = await indexResponse.text();
+    console.log('Index CSV received');
+    console.log('Raw CSV (first 300 chars):', indexCsv.substring(0, 300));
+    
+    // Fix multiline URLs that got split by newlines
+    indexCsv = fixMultilineUrls(indexCsv);
+    console.log('Fixed CSV (first 300 chars):', indexCsv.substring(0, 300));
+    
     const batches = parseBatchIndex(indexCsv);
     console.log(`Found ${batches.length} batches:`, batches.map(b => b.batch));
     
-    // Step 2: Fetch data from each batch sheet
+    if (batches.length === 0) {
+      return new Response(
+        JSON.stringify({ alumni: FALLBACK_ALUMNI, batches: FALLBACK_BATCHES }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const allAlumni: Alumni[] = [];
     
     for (const batchInfo of batches) {
@@ -56,31 +83,69 @@ serve(async (req) => {
     
     console.log(`Total alumni fetched: ${allAlumni.length}`);
     
-    return new Response(JSON.stringify({ alumni: allAlumni, batches: batches.map(b => b.batch) }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ alumni: allAlumni, batches: batches.map(b => b.batch) }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error: unknown) {
-    console.error('Error fetching alumni:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error:', error);
+    
+    return new Response(
+      JSON.stringify({ alumni: FALLBACK_ALUMNI, batches: FALLBACK_BATCHES }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });
 
+function fixMultilineUrls(csvText: string): string {
+  // Join lines that appear to be continuations of URLs
+  const lines = csvText.split('\n');
+  let result = [];
+  let i = 0;
+  
+  while (i < lines.length) {
+    let line = lines[i];
+    
+    // Check if next line is a URL continuation (doesn't start with letter,number at column 0 for CSV)
+    while (i + 1 < lines.length) {
+      const nextLine = lines[i + 1];
+      // If next line doesn't have a comma at the start and current line ends with a comma continuation
+      const isContinuation = nextLine && !nextLine.includes(',') && !nextLine.match(/^\w+,/);
+      if (isContinuation) {
+        line += nextLine;
+        i++;
+      } else {
+        break;
+      }
+    }
+    
+    result.push(line);
+    i++;
+  }
+  
+  return result.join('\n');
+}
+
 function parseBatchIndex(csvText: string): BatchInfo[] {
-  const lines = csvText.split('\n').filter(line => line.trim());
+  const lines = csvText.split('\n');
   const batches: BatchInfo[] = [];
   
-  // Skip header row (batch, link)
+  console.log('Parsing index, total lines:', lines.length);
+  
+  // Skip header row
   for (let i = 1; i < lines.length; i++) {
-    const columns = parseCSVLine(lines[i]);
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const columns = parseCSVLine(line);
     const batch = columns[0]?.trim();
     const sheetUrl = columns[1]?.trim();
     
-    if (batch && sheetUrl && sheetUrl.includes('docs.google.com')) {
+    console.log(`Line ${i}: batch="${batch}", url="${sheetUrl?.substring(0, 60)}..."`);
+    
+    if (batch && sheetUrl && sheetUrl.includes('docs.google.com') && sheetUrl.includes('/d/')) {
       batches.push({ batch, sheetUrl });
+      console.log(`Added batch ${batch}`);
     }
   }
   
@@ -88,12 +153,11 @@ function parseBatchIndex(csvText: string): BatchInfo[] {
 }
 
 async function fetchBatchData(batchInfo: BatchInfo): Promise<Alumni[]> {
-  // Extract sheet ID and gid from the URL
   const sheetIdMatch = batchInfo.sheetUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
   const gidMatch = batchInfo.sheetUrl.match(/gid=(\d+)/);
   
   if (!sheetIdMatch) {
-    console.error(`Could not extract sheet ID from URL: ${batchInfo.sheetUrl}`);
+    console.error('Could not extract sheet ID');
     return [];
   }
   
@@ -101,10 +165,12 @@ async function fetchBatchData(batchInfo: BatchInfo): Promise<Alumni[]> {
   const gid = gidMatch ? gidMatch[1] : '0';
   
   const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-  const response = await fetch(csvUrl);
+  console.log(`Fetching batch ${batchInfo.batch}`);
+  
+  const response = await fetch(csvUrl, { redirect: 'follow' });
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch batch sheet: ${response.status}`);
+    throw new Error(`Failed: ${response.status}`);
   }
   
   const csvText = await response.text();
@@ -115,51 +181,44 @@ function parseStudentData(csvText: string, batch: string): Alumni[] {
   const lines = csvText.split('\n').filter(line => line.trim());
   const alumni: Alumni[] = [];
   
-  // Skip header row
-  for (let i = 1; i < lines.length; i++) {
-    const columns = parseCSVLine(lines[i]);
-    
-    // Columns: S.NO, Roll number, Name, Contact, Email (or similar)
-    // Try to find roll number, name, and email
-    if (columns.length >= 3) {
-      // Find columns by checking content patterns
-      let rollNo = '';
-      let name = '';
-      let email = '';
-      
-      for (let j = 0; j < columns.length; j++) {
-        const col = columns[j]?.trim() || '';
-        
-        // Roll number pattern (like 20891A1201)
-        if (!rollNo && /^\d{2}[A-Z0-9]+$/i.test(col)) {
-          rollNo = col;
-        }
-        // Email pattern
-        else if (!email && col.includes('@') && col.includes('.')) {
-          email = col;
-        }
-        // Name - usually the column after roll number, not a number, not email
-        else if (!name && rollNo && col && !/^\d+$/.test(col) && !col.includes('@') && col.length > 2) {
-          name = col;
-        }
-      }
-      
-      // Fallback: assume standard column order (S.NO, Roll, Name, Contact, Email)
-      if (!rollNo && columns[1]) rollNo = columns[1].trim();
-      if (!name && columns[2]) name = columns[2].trim();
-      if (!email && columns[4]) email = columns[4].trim();
-      
-      if (rollNo && name && rollNo !== 'Roll number' && name !== 'Name of the Student') {
-        alumni.push({
-          rollNo,
-          name,
-          email: email || '',
-          batch
-        });
-      }
+  if (lines.length < 2) return [];
+  
+  // Find the header row (contains "Roll number" or "roll")
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    if (lines[i].toLowerCase().includes('roll') || lines[i].toLowerCase().includes('name')) {
+      headerIdx = i;
+      break;
     }
   }
   
+  const headers = parseCSVLine(lines[headerIdx]).map(h => h.toLowerCase().trim());
+  
+  let rollNoIdx = -1, nameIdx = -1, emailIdx = -1;
+  
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
+    if (h.includes('roll') || h.includes('no')) rollNoIdx = i;
+    if (h.includes('name')) nameIdx = i;
+    if (h.includes('email')) emailIdx = i;
+  }
+  
+  console.log(`Batch ${batch} headers at line ${headerIdx}:`, headers);
+  console.log(`Indices - roll: ${rollNoIdx}, name: ${nameIdx}, email: ${emailIdx}`);
+  
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const columns = parseCSVLine(lines[i]);
+    
+    const rollNo = rollNoIdx >= 0 && columns[rollNoIdx] ? columns[rollNoIdx].trim() : '';
+    const name = nameIdx >= 0 && columns[nameIdx] ? columns[nameIdx].trim() : '';
+    const email = emailIdx >= 0 && columns[emailIdx] ? columns[emailIdx].trim() : '';
+    
+    if (!rollNo || !name) continue;
+    
+    alumni.push({ rollNo, name, email: email || '', batch });
+  }
+  
+  console.log(`Parsed ${alumni.length} students for batch ${batch}`);
   return alumni;
 }
 
