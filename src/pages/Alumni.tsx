@@ -3,19 +3,29 @@ import Navbar from "@/components/layout/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Users, GraduationCap, Mail, Hash } from "lucide-react";
+import { Search, Users, GraduationCap, Mail, Hash, Calendar, Filter } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Alumni {
   rollNo: string;
   name: string;
   email: string;
+  batch: string;
 }
 
 const Alumni = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBatch, setSelectedBatch] = useState("All");
   const [alumni, setAlumni] = useState<Alumni[]>([]);
+  const [batches, setBatches] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +40,9 @@ const Alumni = () => {
         if (data?.alumni) {
           setAlumni(data.alumni);
         }
+        if (data?.batches) {
+          setBatches(data.batches);
+        }
       } catch (err) {
         console.error('Error fetching alumni:', err);
         setError('Failed to load alumni data');
@@ -43,12 +56,18 @@ const Alumni = () => {
 
   const filteredAlumni = alumni.filter((a) => {
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = 
       a.name.toLowerCase().includes(query) ||
       a.email.toLowerCase().includes(query) ||
-      a.rollNo.toLowerCase().includes(query)
-    );
+      a.rollNo.toLowerCase().includes(query);
+    const matchesBatch = selectedBatch === "All" || a.batch === selectedBatch;
+    return matchesSearch && matchesBatch;
   });
+
+  const batchStats = batches.map(batch => ({
+    batch,
+    count: alumni.filter(a => a.batch === batch).length
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -78,8 +97,8 @@ const Alumni = () => {
       {/* Filters Section */}
       <section className="py-8 bg-card border-b border-border sticky top-16 z-30 shadow-soft">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-center">
-            <div className="relative flex-1 max-w-lg w-full">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="relative flex-1 max-w-md w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 type="text"
@@ -89,9 +108,66 @@ const Alumni = () => {
                 className="pl-10 h-12"
               />
             </div>
+
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Batch:</span>
+              </div>
+              <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Select batch" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Batches</SelectItem>
+                  {batches.map((batch) => (
+                    <SelectItem key={batch} value={batch}>
+                      {batch}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* Batch Stats */}
+      {batchStats.length > 0 && (
+        <section className="py-6 bg-muted/30">
+          <div className="container mx-auto px-4">
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              <button
+                onClick={() => setSelectedBatch("All")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
+                  selectedBatch === "All"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card border border-border hover:border-primary/50"
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                All Batches
+                <Badge variant="secondary" className="ml-1">{alumni.length}</Badge>
+              </button>
+              {batchStats.map((stat) => (
+                <button
+                  key={stat.batch}
+                  onClick={() => setSelectedBatch(stat.batch)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
+                    selectedBatch === stat.batch
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card border border-border hover:border-primary/50"
+                  }`}
+                >
+                  <Calendar className="w-4 h-4" />
+                  Batch {stat.batch}
+                  <Badge variant="secondary" className="ml-1">{stat.count}</Badge>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Alumni Grid */}
       <section className="py-12">
@@ -126,7 +202,7 @@ const Alumni = () => {
                 No Alumni Found
               </h3>
               <p className="text-muted-foreground">
-                Try adjusting your search criteria.
+                Try adjusting your search or filter criteria.
               </p>
             </div>
           ) : (
@@ -139,13 +215,18 @@ const Alumni = () => {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredAlumni.map((a, index) => (
                   <Card 
-                    key={a.rollNo}
+                    key={`${a.batch}-${a.rollNo}`}
                     className="group hover:shadow-medium transition-all duration-300 hover:-translate-y-1 animate-scale-in border-border"
                     style={{ animationDelay: `${Math.min(index * 0.02, 0.5)}s` }}
                   >
                     <CardHeader className="pb-3">
-                      <div className="w-12 h-12 rounded-full gradient-hero flex items-center justify-center text-secondary font-display font-bold text-lg">
-                        {a.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
+                      <div className="flex items-start justify-between">
+                        <div className="w-12 h-12 rounded-full gradient-hero flex items-center justify-center text-secondary font-display font-bold text-lg">
+                          {a.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {a.batch}
+                        </Badge>
                       </div>
                       <CardTitle className="font-display text-lg mt-3 capitalize">
                         {a.name.toLowerCase()}
@@ -157,15 +238,17 @@ const Alumni = () => {
                           <Hash className="w-4 h-4 flex-shrink-0" />
                           <span className="font-mono">{a.rollNo}</span>
                         </div>
-                        <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                          <Mail className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                          <a 
-                            href={`mailto:${a.email}`}
-                            className="hover:text-primary transition-colors break-all"
-                          >
-                            {a.email.toLowerCase()}
-                          </a>
-                        </div>
+                        {a.email && (
+                          <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <Mail className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <a 
+                              href={`mailto:${a.email}`}
+                              className="hover:text-primary transition-colors break-all"
+                            >
+                              {a.email.toLowerCase()}
+                            </a>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -182,7 +265,7 @@ const Alumni = () => {
               </h3>
               <p className="text-primary-foreground/80 max-w-2xl mx-auto">
                 Our alumni directory is synced directly from the official IT Department database,
-                ensuring up-to-date information for all students.
+                organized by batch year for easy navigation.
               </p>
             </CardContent>
           </Card>
