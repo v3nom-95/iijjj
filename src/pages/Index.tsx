@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users, MessageSquare, Briefcase, GraduationCap, ArrowRight, Award, Globe } from "lucide-react";
+import { Users, MessageSquare, Briefcase, ArrowRight, Award, Globe } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
+import Logo from "@/components/Logo";
 
 const Index = () => {
   const features = [
@@ -38,22 +39,35 @@ const Index = () => {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOCAxOC04LjA1OSAxOC0xOC04LjA1OS0xOC0xOC0xOHoiIHN0cm9rZT0iI2YzYjg0YyIgc3Ryb2tlLW9wYWNpdHk9Ii4xIiBzdHJva2Utd2lkdGg9IjIiLz48L2c+PC9zdmc+')] opacity-30" />
         
         <div className="container relative mx-auto px-4 pt-16 pb-8">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 text-secondary mb-8 animate-fade-in">
-              <Award className="w-4 h-4" />
-              <span className="text-sm font-medium">Vignan Institute of Technology & Science</span>
+          <div className="max-w-6xl mx-auto">
+            {/* Hero Section with Logo and College Info */}
+            <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 mb-12">
+              {/* Logo Section */}
+              <div className="flex-shrink-0 animate-fade-in">
+                <Logo size="xl" />
+              </div>
+              
+              {/* College and Department Info */}
+              <div className="flex-1 text-center lg:text-left">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 text-secondary mb-6 animate-fade-in">
+                  <Award className="w-4 h-4" />
+                  <span className="text-sm font-medium">Vignan Institute of Technology & Science</span>
+                </div>
+                
+                <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-4 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+                  <span className="text-gradient-gold">VAAIT</span>
+                  <span className="block text-2xl md:text-3xl lg:text-4xl mt-2 text-primary-foreground/90">
+                    Department of Information Technology
+                  </span>
+                </h1>
+                
+                <p className="text-lg md:text-xl text-primary-foreground/80 max-w-2xl mx-auto lg:mx-0 mb-8 animate-slide-up" style={{ animationDelay: "0.2s" }}>
+                  Vignan Alumni Association for Information Technology - Connect, collaborate, and grow with our vibrant alumni community.
+                </p>
+              </div>
             </div>
             
-            <h1 className="font-display text-4xl md:text-6xl lg:text-7xl font-bold text-primary-foreground mb-6 animate-slide-up" style={{ animationDelay: "0.1s" }}>
-              Department of
-              <span className="block text-gradient-gold">Information Technology</span>
-            </h1>
-            
-            <p className="text-lg md:text-xl text-primary-foreground/80 max-w-2xl mx-auto mb-10 animate-slide-up" style={{ animationDelay: "0.2s" }}>
-              Connect, collaborate, and grow with our vibrant alumni community. 
-              Building bridges between generations of IT excellence.
-            </p>
-            
+            {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{ animationDelay: "0.3s" }}>
               <Button variant="hero" size="xl" asChild>
                 <Link to="/alumni">
@@ -148,15 +162,7 @@ const Index = () => {
       <footer className="py-12 bg-card border-t border-border">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
-                <GraduationCap className="w-6 h-6 text-secondary" />
-              </div>
-              <div>
-                <p className="font-display font-bold text-foreground">VNITS Alumni Connect</p>
-                <p className="text-sm text-muted-foreground">Department of Information Technology</p>
-              </div>
-            </div>
+            <Logo size="md" variant="footer" />
             <p className="text-sm text-muted-foreground">
               © 2024 Vignan Institute of Technology & Science. All rights reserved.
             </p>

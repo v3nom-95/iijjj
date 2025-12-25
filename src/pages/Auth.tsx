@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { GraduationCap, Mail, Lock, User, ArrowLeft, Loader2 } from "lucide-react";
+import { Mail, Lock, User, ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import Logo from "@/components/Logo";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -68,7 +69,7 @@ const Auth = () => {
 
         toast({
           title: "Account created!",
-          description: "Welcome to the VNITS Alumni Network.",
+          description: "Welcome to the VAAIT Network.",
         });
         navigate("/community");
       }
@@ -102,9 +103,7 @@ const Auth = () => {
 
         <Card className="shadow-medium border-0 animate-scale-in">
           <CardHeader className="text-center pb-4">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-hero flex items-center justify-center shadow-soft">
-              <GraduationCap className="w-9 h-9 text-secondary" />
-            </div>
+            <Logo size="xl" variant="auth" />
             <CardTitle className="font-display text-2xl">
               {isLogin ? "Welcome Back" : "Join the Network"}
             </CardTitle>

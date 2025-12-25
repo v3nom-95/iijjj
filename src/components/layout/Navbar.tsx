@@ -1,9 +1,10 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Users, MessageSquare, LogOut, Menu, X } from "lucide-react";
+import { Users, MessageSquare, LogOut, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
+import Logo from "@/components/Logo";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -38,16 +39,8 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center shadow-soft group-hover:shadow-medium transition-all duration-300">
-              <GraduationCap className="w-6 h-6 text-secondary" />
-            </div>
-            <div className="hidden sm:block">
-              <h1 className="font-display text-lg font-bold text-foreground leading-tight">
-                VNITS Alumni
-              </h1>
-              <p className="text-xs text-muted-foreground">Dept. of IT</p>
-            </div>
+          <Link to="/" className="group">
+            <Logo size="md" showText={true} />
           </Link>
 
           {/* Desktop Navigation */}
