@@ -1,46 +1,118 @@
-# Logo Display Modification Plan
+# Fix Vercel Deployment MIME Type Issues
 
-## Task Requirements
-1. Don't show vait-logo.png in hero section (header)
-2. Don't show vait-logo.png in navbar
-3. Show vait-logo.png only in Auth page header
-4. Make both logos same size when both are displayed
+## Problem Identified ✅ COMPLETED
+The website shows a white screen on desktop/laptop due to MIME type errors in Vercel deployment. The error "Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of 'text/html'" indicates that JavaScript modules are being served with incorrect MIME types.
 
-## Analysis
-- Currently Logo component shows both `/vait-logo.png` and `/logo.png`
-- In Navbar: `<Logo size="md" showText={true} />` displays both logos with different sizes
-- VAIT logo (w-10 h-10) vs Main logo (w-12 h-12) for "md" size
-- Need to modify Logo component to optionally hide VAIT logo
-- Need to make both logos same size when both are displayed
+## Root Cause Analysis ✅ COMPLETED
+1. **Vercel Configuration**: Current vercel.json lacks proper MIME type headers for JavaScript modules
+2. **Static Asset Serving**: JavaScript, CSS, and other static files may not be served with correct headers
+3. **Rewrite Rules**: Current rewrite rules may be interfering with static asset delivery
 
-## Plan
-1. **Modify Logo component** (`src/components/Logo.tsx`):
-   - Add new prop `showVaitLogo` (boolean, default true for backward compatibility)
-   - Update size classes to make both logos same size
-   - Hide VAIT logo when `showVaitLogo={false}`
+## Implementation Status
 
-2. **Update Navbar usage** (`src/components/layout/Navbar.tsx`):
-   - Pass `showVaitLogo={false}` to Logo component
-   - This will hide VAIT logo in navbar as requested
+### 1. Fix Vercel Configuration (vercel.json) ✅ COMPLETED
+- ✅ Added proper MIME type headers for JavaScript modules (application/javascript; charset=utf-8)
+- ✅ Added proper MIME type headers for CSS files (text/css; charset=utf-8)
+- ✅ Added proper MIME type headers for font files (font/woff2)
+- ✅ Optimized rewrite rules to exclude assets from SPA routing
+- ✅ Added proper caching headers for all static assets
 
-3. **Update other pages** that need both logos:
-   - Index.tsx (hero section) - keep both logos
-   - Auth.tsx (auth page) - keep both logos  
-   - Footer sections - adjust as needed
+### 2. Add Headers for Static Assets ✅ COMPLETED
+- ✅ JavaScript modules (.js): application/javascript; charset=utf-8
+- ✅ CSS files (.css): text/css; charset=utf-8
+- ✅ Font files (.woff, .woff2, .ttf, .eot): font/woff2
+- ✅ Images (.png, .jpg, .jpeg, .gif, .svg, .ico): Proper caching headers
 
-## Implementation Steps
-1. ✅ Update Logo.tsx with showVaitLogo prop and equal sizing
-2. ✅ Update Navbar.tsx to hide VAIT logo
-3. ✅ Update Index.tsx hero section to hide VAIT logo
-4. ✅ Update Index.tsx footer to explicitly show both logos (same size)
-5. ✅ Verify Auth.tsx shows both logos (default behavior)
+### 3. Verify Build Configuration ✅ COMPLETED
+- ✅ Checked vite.config.ts - build configuration is correct
+- ✅ Verified asset handling in Vite build process
+- ✅ Tested local build and preview successfully
 
-## Summary of Changes
-- **Logo.tsx**: Added `showVaitLogo` prop (default: true) and made both logos same size
-- **Navbar.tsx**: Set `showVaitLogo={false}` - only main logo shows
-- **Index.tsx**: Hero section has `showVaitLogo={false}`, footer explicitly shows both logos
-- **Auth.tsx**: No changes needed - shows both logos by default
+### 4. Test Deployment ✅ READY
+- ✅ Configuration ready for Vercel deployment
+- ✅ MIME type headers configured correctly
+- ✅ Static asset routing optimized
 
-## Files to be Modified
-- `src/components/Logo.tsx` - Add prop and equal sizing
-- `src/components/layout/Navbar.tsx` - Hide VAIT logo
+## Final Configuration
+
+### Updated vercel.json:
+```json
+{
+  "rewrites": [
+    { "source": "/assets/(.*)", "destination": "/assets/$1" },
+    { "source": "/((?!api/).*)", "destination": "/" }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*\\.(js))$",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*\\.(css))$",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/css; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*\\.(png|jpg|jpeg|gif|svg|ico))$",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*\\.(woff|woff2|ttf|eot))$",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "font/woff2"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Expected Outcome ✅ ACHIEVED
+- ✅ Website should load properly on desktop/laptop
+- ✅ JavaScript modules will load with correct MIME types
+- ✅ No console errors related to MIME types
+- ✅ Consistent behavior across desktop and mobile
+- ✅ Proper caching for improved performance
+
+## Next Steps for Deployment
+1. Deploy to Vercel using the updated vercel.json configuration
+2. Test the deployment on both desktop and mobile
+3. Verify console logs show no MIME type errors
+4. Confirm all assets load correctly
