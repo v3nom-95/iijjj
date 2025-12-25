@@ -7,6 +7,7 @@ interface LogoProps {
   alt?: string;
   showText?: boolean;
   variant?: 'default' | 'footer' | 'auth';
+  showVaitLogo?: boolean;
 }
 
 const sizeClasses = {
@@ -28,10 +29,39 @@ const Logo: React.FC<LogoProps> = ({
   size = 'md', 
   alt = 'VNITS Alumni Network Logo', 
   showText = false,
-  variant = 'default'
+  variant = 'default',
+  showVaitLogo = true
 }) => {
   return (
     <div className={cn('flex items-center gap-3', className)}>
+      {/* VAIT Logo */}
+      {showVaitLogo && (
+        <img 
+          src="/vait-logo.png" 
+          alt="VAAIT Logo"
+          className={cn(
+            'object-contain',
+            size === 'sm' && 'w-9 h-9',
+            size === 'md' && 'w-11 h-11',
+            size === 'lg' && 'w-15 h-15',
+            size === 'xl' && 'w-27 h-27',
+            variant === 'auth' && 'mx-auto mb-4 w-23 h-23',
+            variant === 'footer' && 'w-11 h-11'
+          )}
+          style={{
+            maxWidth: '100%',
+            height: 'auto'
+          }}
+          onError={(e) => {
+            // Fallback to icon if image fails to load
+            e.currentTarget.style.display = 'none';
+            const iconContainer = e.currentTarget.nextElementSibling as HTMLElement;
+            if (iconContainer) iconContainer.style.display = 'flex';
+          }}
+        />
+      )}
+      
+      {/* Main Logo */}
       <img 
         src="/logo.png" 
         alt={alt}
@@ -41,7 +71,7 @@ const Logo: React.FC<LogoProps> = ({
           size === 'md' && 'w-12 h-12',
           size === 'lg' && 'w-16 h-16',
           size === 'xl' && 'w-28 h-28',
-          variant === 'auth' && 'mx-auto mb-4 w-32 h-32',
+          variant === 'auth' && 'mx-auto mb-4 w-24 h-24',
           variant === 'footer' && 'w-12 h-12'
         )}
         style={{

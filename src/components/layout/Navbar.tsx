@@ -40,7 +40,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="group">
-            <Logo size="md" showText={true} />
+            <Logo size="md" showText={true} showVaitLogo={true} />
           </Link>
 
           {/* Desktop Navigation */}

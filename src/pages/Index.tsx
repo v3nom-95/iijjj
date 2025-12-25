@@ -44,7 +44,7 @@ const Index = () => {
             <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 mb-12">
               {/* Logo Section */}
               <div className="flex-shrink-0 animate-fade-in">
-                <Logo size="xl" />
+                <Logo size="xl" showVaitLogo={false} />
               </div>
               
               {/* College and Department Info */}
@@ -162,7 +162,7 @@ const Index = () => {
       <footer className="py-12 bg-card border-t border-border">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <Logo size="md" variant="footer" />
+            <Logo size="md" variant="footer" showVaitLogo={true} />
             <p className="text-sm text-muted-foreground">
               © 2026 Department of Information Technology. Developed by NextGen-DSDC.
             </p>

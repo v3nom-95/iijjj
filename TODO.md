@@ -1,69 +1,46 @@
-# Logo & Theme Enhancement Plan
+# Logo Display Modification Plan
 
-## Current State Analysis
-- Application uses GraduationCap icon instead of actual logo
-- Current theme: Deep Navy & Gold (Vignan IT branding)
-- Logo file exists at public/logo.png but not utilized
-- Theme colors: Navy (#3B4F8A), Gold (#F4C947)
+## Task Requirements
+1. Don't show vait-logo.png in hero section (header)
+2. Don't show vait-logo.png in navbar
+3. Show vait-logo.png only in Auth page header
+4. Make both logos same size when both are displayed
 
-## Logo Implementation Tasks
+## Analysis
+- Currently Logo component shows both `/vait-logo.png` and `/logo.png`
+- In Navbar: `<Logo size="md" showText={true} />` displays both logos with different sizes
+- VAIT logo (w-10 h-10) vs Main logo (w-12 h-12) for "md" size
+- Need to modify Logo component to optionally hide VAIT logo
+- Need to make both logos same size when both are displayed
 
-### 1. Replace Icon with Image Logo
-- [x] Update Navbar component to use logo.png instead of GraduationCap icon
-- [x] Update Auth page logo usage
-- [x] Update Index page footer logo usage
-- [x] Ensure proper image sizing and responsive behavior
+## Plan
+1. **Modify Logo component** (`src/components/Logo.tsx`):
+   - Add new prop `showVaitLogo` (boolean, default true for backward compatibility)
+   - Update size classes to make both logos same size
+   - Hide VAIT logo when `showVaitLogo={false}`
 
-### 2. Logo Styling & Responsiveness
-- [x] Create proper CSS classes for logo sizing
-- [x] Ensure logo scales appropriately on different screen sizes
-- [x] Add hover effects and transitions
-- [x] Maintain aspect ratio
+2. **Update Navbar usage** (`src/components/layout/Navbar.tsx`):
+   - Pass `showVaitLogo={false}` to Logo component
+   - This will hide VAIT logo in navbar as requested
 
-### 3. Favicon Update
-- [x] Update favicon.ico to use the new logo (already PNG format)
-- [x] Ensure proper icon sizes for different contexts
+3. **Update other pages** that need both logos:
+   - Index.tsx (hero section) - keep both logos
+   - Auth.tsx (auth page) - keep both logos  
+   - Footer sections - adjust as needed
 
-## Theme Enhancement Tasks
+## Implementation Steps
+1. ✅ Update Logo.tsx with showVaitLogo prop and equal sizing
+2. ✅ Update Navbar.tsx to hide VAIT logo
+3. ✅ Update Index.tsx hero section to hide VAIT logo
+4. ✅ Update Index.tsx footer to explicitly show both logos (same size)
+5. ✅ Verify Auth.tsx shows both logos (default behavior)
 
-### 4. Theme Color Optimization
-- [x] Review current navy and gold color scheme
-- [x] Ensure proper contrast ratios with new logo
-- [x] Adjust accent colors if needed for better branding
+## Summary of Changes
+- **Logo.tsx**: Added `showVaitLogo` prop (default: true) and made both logos same size
+- **Navbar.tsx**: Set `showVaitLogo={false}` - only main logo shows
+- **Index.tsx**: Hero section has `showVaitLogo={false}`, footer explicitly shows both logos
+- **Auth.tsx**: No changes needed - shows both logos by default
 
-### 5. Visual Consistency
-- [x] Update all logo instances to use consistent sizing
-- [x] Ensure theme gradients work well with logo
-- [x] Verify shadow and border treatments
-
-## Technical Implementation
-- [x] Create Logo component for reusability
-- [x] Update import statements
-- [x] Test responsive behavior
-- [x] Verify accessibility (alt text, etc.)
-
-## Testing & Validation
-- [x] Test logo display across all pages (successful build verification)
-- [x] Verify theme consistency
-- [x] Check mobile responsiveness (handled via Tailwind classes)
-- [x] Ensure proper loading and fallbacks (error handling implemented)
-
-## Branding Updates (VAAIT Implementation)
-- [x] Update Logo component to use VAAIT branding
-- [x] Make logo prominent in hero section (left-aligned with college info)
-- [x] Update Index page with VAAIT and college details
-- [x] Update Auth page messaging to VAAIT
-- [x] Ensure consistent VAAIT branding across all components
-- [x] Remove boundaries/containers from logo display (show in original shape)
-- [x] Optimize logo sizing for better visibility
-- [x] **Increase logo sizes for better prominence:**
-  - Hero section: 112x112px (XL size)
-  - Auth page: 128x128px
-  - All other sizes proportionally increased
-
-## Files to Modify
-1. `/src/components/layout/Navbar.tsx`
-2. `/src/pages/Auth.tsx`
-3. `/src/pages/Index.tsx`
-4. `/src/index.css` (add logo utilities)
-5. Potentially create `/src/components/Logo.tsx`
+## Files to be Modified
+- `src/components/Logo.tsx` - Add prop and equal sizing
+- `src/components/layout/Navbar.tsx` - Hide VAIT logo
