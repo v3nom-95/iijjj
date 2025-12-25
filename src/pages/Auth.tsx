@@ -103,7 +103,7 @@ const Auth = () => {
 
         <Card className="shadow-medium border-0 animate-scale-in">
           <CardHeader className="text-center pb-4">
-            <Logo size="xl" variant="auth" showVaitLogo={false} />
+            <Logo size="xl" variant="auth" showVaitLogo={false} showVitsLogo={false} />
             <CardTitle className="font-display text-2xl">
               {isLogin ? "Welcome Back" : "Join the Network"}
             </CardTitle>
