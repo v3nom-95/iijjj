@@ -13,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Linkedin, Briefcase } from "lucide-react";
 
 interface Alumni {
   rollNo: string;
@@ -20,11 +28,14 @@ interface Alumni {
   email: string;
   batch: string;
   photo?: string;
+  linkedin?: string;
+  status?: string;
 }
 
 const Alumni = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBatch, setSelectedBatch] = useState("All");
+  const [selectedAlumni, setSelectedAlumni] = useState<Alumni | null>(null);
   const [alumni, setAlumni] = useState<Alumni[]>([]);
   const [batches, setBatches] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,7 +114,7 @@ const Alumni = () => {
           }
 
           const headers = dataLines[headerIdx].split(',').map(h => h.toLowerCase().trim());
-          let rollNoIdx = -1, nameIdx = -1, emailIdx = -1, photoIdx = -1;
+          let rollNoIdx = -1, nameIdx = -1, emailIdx = -1, photoIdx = -1, linkedinIdx = -1, statusIdx = -1;
 
           for (let k = 0; k < headers.length; k++) {
             const h = headers[k];
@@ -111,6 +122,8 @@ const Alumni = () => {
             if (h.includes('name')) nameIdx = k;
             if (h.includes('email')) emailIdx = k;
             if (h.includes('photo')) photoIdx = k;
+            if (h.includes('linkedin')) linkedinIdx = k;
+            if (h.includes('status') || h.includes('current') || h.includes('position')) statusIdx = k;
           }
 
           // Parse students
@@ -393,8 +406,9 @@ const Alumni = () => {
                       {batchAlumni.map((a, index) => (
                         <Card
                           key={`${a.batch}-${a.rollNo}`}
-                          className="group hover:shadow-medium transition-all duration-300 hover:-translate-y-1 animate-scale-in border-border"
+                          className="group hover:shadow-medium transition-all duration-300 hover:-translate-y-1 animate-scale-in border-border cursor-pointer"
                           style={{ animationDelay: `${Math.min(index * 0.02, 0.5)}s` }}
+                          onClick={() => setSelectedAlumni(a)}
                         >
                           <CardHeader className="pb-3">
                             <div className="w-12 h-12 rounded-full overflow-hidden gradient-hero flex items-center justify-center text-secondary font-display font-bold text-lg">
@@ -448,6 +462,61 @@ const Alumni = () => {
 
         </div>
       </section>
+
+      <Dialog open={!!selectedAlumni} onOpenChange={(open) => !open && setSelectedAlumni(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedAlumni?.name}</DialogTitle>
+            <DialogDescription>
+              {selectedAlumni?.rollNo} | Batch {selectedAlumni?.batch}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center gap-6 py-4">
+            <div className="w-32 h-32 rounded-full overflow-hidden gradient-hero flex items-center justify-center text-secondary font-display font-bold text-4xl shadow-lg">
+              {selectedAlumni?.photo ? (
+                <img
+                  src={selectedAlumni.photo}
+                  alt={selectedAlumni.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                selectedAlumni?.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()
+              )}
+            </div>
+
+            <div className="space-y-4 w-full px-4">
+              {selectedAlumni?.status && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/10 text-secondary-foreground">
+                  <Briefcase className="w-5 h-5 text-secondary" />
+                  <span className="font-medium text-sm">{selectedAlumni.status}</span>
+                </div>
+              )}
+
+              {selectedAlumni?.email && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border">
+                  <Mail className="w-5 h-5 text-muted-foreground" />
+                  <a href={`mailto:${selectedAlumni.email}`} className="text-sm hover:text-primary transition-colors">
+                    {selectedAlumni.email}
+                  </a>
+                </div>
+              )}
+
+              {selectedAlumni?.linkedin && (
+                <a
+                  href={selectedAlumni.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full p-3 rounded-lg bg-[#0077b5] text-white hover:bg-[#0077b5]/90 transition-colors font-medium"
+                >
+                  <Linkedin className="w-5 h-5" />
+                  View LinkedIn Profile
+                </a>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

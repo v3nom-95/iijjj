@@ -15,6 +15,8 @@ interface Alumni {
   email: string;
   batch: string;
   photo?: string;
+  linkedin?: string;
+  status?: string;
 }
 
 interface BatchInfo {
@@ -208,7 +210,7 @@ function parseStudentData(csvText: string, batch: string): Alumni[] {
 
   const headers = parseCSVLine(lines[headerIdx]).map(h => h.toLowerCase().trim());
 
-  let rollNoIdx = -1, nameIdx = -1, emailIdx = -1, photoIdx = -1;
+  let rollNoIdx = -1, nameIdx = -1, emailIdx = -1, photoIdx = -1, linkedinIdx = -1, statusIdx = -1;
 
   for (let i = 0; i < headers.length; i++) {
     const h = headers[i];
@@ -216,10 +218,12 @@ function parseStudentData(csvText: string, batch: string): Alumni[] {
     if (h.includes('name')) nameIdx = i;
     if (h.includes('email')) emailIdx = i;
     if (h.includes('photo')) photoIdx = i;
+    if (h.includes('linkedin')) linkedinIdx = i;
+    if (h.includes('status') || h.includes('current') || h.includes('position')) statusIdx = i;
   }
 
   console.log(`Batch ${batch} headers at line ${headerIdx}:`, headers);
-  console.log(`Indices - roll: ${rollNoIdx}, name: ${nameIdx}, email: ${emailIdx}, photo: ${photoIdx}`);
+  console.log(`Indices - roll: ${rollNoIdx}, name: ${nameIdx}, email: ${emailIdx}, photo: ${photoIdx}, linkedin: ${linkedinIdx}, status: ${statusIdx}`);
 
   for (let i = headerIdx + 1; i < lines.length; i++) {
     const columns = parseCSVLine(lines[i]);
