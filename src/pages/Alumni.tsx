@@ -45,8 +45,8 @@ const Alumni = () => {
   const fetchAlumniDirect = async () => {
     try {
       console.log('Fetching alumni directly from Google Sheets...');
-      const INDEX_SHEET_ID = '15levddFZV4KJov4wey-osN5Ul4Dzc7UYEH2Gb0Z83i8';
-      const indexCsvUrl = `https://docs.google.com/spreadsheets/d/${INDEX_SHEET_ID}/export?format=csv&gid=0`;
+      const INDEX_SHEET_ID = '1qLdxrFRnIdFu49bfLdXB9adk5TstMzC8Q3CuMHYM_6w';
+      const indexCsvUrl = `https://docs.google.com/spreadsheets/d/${INDEX_SHEET_ID}/export?format=csv&gid=363842358`;
 
       const indexResponse = await fetch(indexCsvUrl);
       if (!indexResponse.ok) {
@@ -155,6 +155,68 @@ const Alumni = () => {
           console.log(`Fetched ${allAlumni.filter(a => a.batch === batch).length} students from batch ${batch}`);
         } catch (err) {
           console.error(`Error fetching batch ${batch}:`, err);
+        }
+      }
+
+      // If no batches were found/parsed, try parsing the index CSV itself as data
+      if (allAlumni.length === 0 && batchLines.length > 0) {
+        console.log("No external batches found, parsing index sheet as data...");
+
+        // Reuse the logic? Just parse manually to ensure access to helper vars
+        const dataLines = fixedLines.filter(l => l.trim());
+        let headerIdx = 0;
+        for (let j = 0; j < Math.min(5, dataLines.length); j++) {
+          if (dataLines[j].toLowerCase().includes('roll') || dataLines[j].toLowerCase().includes('name')) {
+            headerIdx = j;
+            break;
+          }
+        }
+
+        const headers = dataLines[headerIdx].split(',').map(h => h.toLowerCase().trim());
+        let rollNoIdx = -1, nameIdx = -1, emailIdx = -1, photoIdx = -1, linkedinIdx = -1, statusIdx = -1;
+        for (let k = 0; k < headers.length; k++) {
+          const h = headers[k];
+          if (h.includes('roll') || h.includes('no')) rollNoIdx = k;
+          if (h.includes('name')) nameIdx = k;
+          if (h.includes('email')) emailIdx = k;
+          if (h.includes('photo')) photoIdx = k;
+          if (h.includes('linkedin')) linkedinIdx = k;
+          if (h.includes('status') || h.includes('current') || h.includes('position')) statusIdx = k;
+        }
+
+        for (let j = headerIdx + 1; j < dataLines.length; j++) {
+          const columns = dataLines[j].split(',');
+          const rollNo = rollNoIdx >= 0 && columns[rollNoIdx] ? columns[rollNoIdx].trim() : '';
+          const name = nameIdx >= 0 && columns[nameIdx] ? columns[nameIdx].trim() : '';
+          const email = emailIdx >= 0 && columns[emailIdx] ? columns[emailIdx].trim() : '';
+          let photo = photoIdx >= 0 && columns[photoIdx] ? columns[photoIdx].trim() : '';
+          const linkedin = linkedinIdx >= 0 && columns[linkedinIdx] ? columns[linkedinIdx].trim() : '';
+          const status = statusIdx >= 0 && columns[statusIdx] ? columns[statusIdx].trim() : '';
+
+          if (photo && (photo.includes('drive.google.com') || photo.includes('docs.google.com'))) {
+            const idMatch = photo.match(/[-\w]{25,}/);
+            if (idMatch) {
+              photo = `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w1000`;
+            }
+          }
+
+          if (!rollNo || !name) continue;
+
+          let derivedBatch = 'Unknown';
+          const batchMatch = rollNo.match(/^(\d{2})/);
+          if (batchMatch) {
+            derivedBatch = '20' + batchMatch[1];
+          }
+
+          allAlumni.push({
+            rollNo,
+            name,
+            email: email || '',
+            batch: derivedBatch,
+            photo: photo || undefined,
+            linkedin: linkedin || undefined,
+            status: status || undefined
+          });
         }
       }
 

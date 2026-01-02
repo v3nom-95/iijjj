@@ -6,8 +6,8 @@ const corsHeaders = {
 };
 
 // Main index sheet with batch and links
-const INDEX_SHEET_ID = '15levddFZV4KJov4wey-osN5Ul4Dzc7UYEH2Gb0Z83i8';
-const INDEX_GID = '0';
+const INDEX_SHEET_ID = '1qLdxrFRnIdFu49bfLdXB9adk5TstMzC8Q3CuMHYM_6w';
+const INDEX_GID = '363842358';
 
 interface Alumni {
   rollNo: string;
@@ -66,6 +66,28 @@ serve(async (req) => {
     console.log(`Found ${batches.length} batches:`, batches.map(b => b.batch));
 
     if (batches.length === 0) {
+      // Try parsing as a direct data sheet if no batches found
+      console.log('No batches found in index, trying to parse as direct data sheet...');
+      const directAlumni = parseStudentData(indexCsv, 'Unknown');
+
+      if (directAlumni.length > 0) {
+        // Auto-correct batches based on roll numbers
+        const alumniWithBatch = directAlumni.map(a => {
+          const match = a.rollNo.match(/^(\d{2})/);
+          if (match) {
+            return { ...a, batch: '20' + match[1] };
+          }
+          return a;
+        });
+
+        const distinctBatches = [...new Set(alumniWithBatch.map(a => a.batch))].sort().reverse();
+
+        return new Response(
+          JSON.stringify({ alumni: alumniWithBatch, batches: distinctBatches }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(
         JSON.stringify({ alumni: FALLBACK_ALUMNI, batches: FALLBACK_BATCHES }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
