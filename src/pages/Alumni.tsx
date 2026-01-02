@@ -19,6 +19,7 @@ interface Alumni {
   name: string;
   email: string;
   batch: string;
+  photo?: string;
 }
 
 const Alumni = () => {
@@ -35,16 +36,16 @@ const Alumni = () => {
       console.log('Fetching alumni directly from Google Sheets...');
       const INDEX_SHEET_ID = '15levddFZV4KJov4wey-osN5Ul4Dzc7UYEH2Gb0Z83i8';
       const indexCsvUrl = `https://docs.google.com/spreadsheets/d/${INDEX_SHEET_ID}/export?format=csv&gid=0`;
-      
+
       const indexResponse = await fetch(indexCsvUrl);
       if (!indexResponse.ok) {
         console.error('Failed to fetch index sheet');
         return null;
       }
-      
+
       const indexCsv = await indexResponse.text();
       console.log('Index CSV fetched, parsing...');
-      
+
       const lines = indexCsv.split('\n');
       let fixedLines = [];
       let i = 0;
@@ -64,34 +65,34 @@ const Alumni = () => {
         fixedLines.push(line);
         i++;
       }
-      
+
       const batchLines = fixedLines.filter(l => l.trim());
       const allAlumni: Alumni[] = [];
-      
+
       // Parse batches and fetch each
       for (let i = 1; i < batchLines.length; i++) {
         const parts = batchLines[i].split(',');
         const batch = parts[0]?.trim();
         const sheetUrl = parts[1]?.trim();
-        
+
         if (!batch || !sheetUrl || !sheetUrl.includes('docs.google.com')) continue;
-        
+
         try {
           const sheetIdMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
           const gidMatch = sheetUrl.match(/gid=(\d+)/);
-          
+
           if (!sheetIdMatch) continue;
-          
+
           const sheetId = sheetIdMatch[1];
           const gid = gidMatch ? gidMatch[1] : '0';
-          
+
           const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
           const csvResponse = await fetch(csvUrl);
           if (!csvResponse.ok) continue;
-          
+
           const csvText = await csvResponse.text();
           const dataLines = csvText.split('\n').filter(l => l.trim());
-          
+
           // Find header row
           let headerIdx = 0;
           for (let j = 0; j < Math.min(5, dataLines.length); j++) {
@@ -100,40 +101,50 @@ const Alumni = () => {
               break;
             }
           }
-          
+
           const headers = dataLines[headerIdx].split(',').map(h => h.toLowerCase().trim());
-          let rollNoIdx = -1, nameIdx = -1, emailIdx = -1;
-          
+          let rollNoIdx = -1, nameIdx = -1, emailIdx = -1, photoIdx = -1;
+
           for (let k = 0; k < headers.length; k++) {
             const h = headers[k];
             if (h.includes('roll') || h.includes('no')) rollNoIdx = k;
             if (h.includes('name')) nameIdx = k;
             if (h.includes('email')) emailIdx = k;
+            if (h.includes('photo')) photoIdx = k;
           }
-          
+
           // Parse students
           for (let j = headerIdx + 1; j < dataLines.length; j++) {
             const columns = dataLines[j].split(',');
             const rollNo = rollNoIdx >= 0 && columns[rollNoIdx] ? columns[rollNoIdx].trim() : '';
             const name = nameIdx >= 0 && columns[nameIdx] ? columns[nameIdx].trim() : '';
             const email = emailIdx >= 0 && columns[emailIdx] ? columns[emailIdx].trim() : '';
-            
+            let photo = photoIdx >= 0 && columns[photoIdx] ? columns[photoIdx].trim() : '';
+
+            if (photo && (photo.includes('drive.google.com') || photo.includes('docs.google.com'))) {
+              const idMatch = photo.match(/[-\w]{25,}/);
+              if (idMatch) {
+                photo = `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w1000`;
+              }
+            }
+
             if (!rollNo || !name) continue;
-            
+
             allAlumni.push({
               rollNo,
               name,
               email: email || '',
-              batch
+              batch,
+              photo: photo || undefined
             });
           }
-          
+
           console.log(`Fetched ${allAlumni.filter(a => a.batch === batch).length} students from batch ${batch}`);
         } catch (err) {
           console.error(`Error fetching batch ${batch}:`, err);
         }
       }
-      
+
       const batchList = [...new Set(allAlumni.map(a => a.batch))].sort((a, b) => b.localeCompare(a));
       return { alumni: allAlumni, batches: batchList };
     } catch (err) {
@@ -147,7 +158,7 @@ const Alumni = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Try edge function first
         let data = null;
         try {
@@ -158,14 +169,25 @@ const Alumni = () => {
         } catch (err) {
           console.warn('Edge function failed, trying direct fetch:', err);
         }
-        
+
         // Fallback to direct fetch if edge function fails
         if (!data || !data.alumni) {
           data = await fetchAlumniDirect();
         }
-        
+
         if (data?.alumni) {
-          const sortedAlumni = [...data.alumni].sort((a, b) => {
+          // Transform Google Drive links if needed
+          const alumniData = data.alumni.map((a: Alumni) => {
+            if (a.photo && (a.photo.includes('drive.google.com') || a.photo.includes('docs.google.com'))) {
+              const idMatch = a.photo.match(/[-\w]{25,}/);
+              if (idMatch) {
+                return { ...a, photo: `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w1000` };
+              }
+            }
+            return a;
+          });
+
+          const sortedAlumni = [...alumniData].sort((a, b) => {
             const batchCompare = b.batch.localeCompare(a.batch);
             if (batchCompare !== 0) return batchCompare;
             // Sort by roll number within each batch
@@ -173,7 +195,7 @@ const Alumni = () => {
           });
           setAlumni(sortedAlumni);
         }
-        
+
         if (data?.batches) {
           const sortedBatches = [...data.batches].sort((a, b) => b.localeCompare(a));
           setBatches(sortedBatches);
@@ -191,7 +213,7 @@ const Alumni = () => {
 
   const filteredAlumni = alumni.filter((a) => {
     const query = searchQuery.toLowerCase();
-    const matchesSearch = 
+    const matchesSearch =
       a.name.toLowerCase().includes(query) ||
       a.email.toLowerCase().includes(query) ||
       a.rollNo.toLowerCase().includes(query);
@@ -207,18 +229,18 @@ const Alumni = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       {/* Hero Section */}
       <section className="pt-24 pb-12 gradient-hero relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOCAxOC04LjA1OSAxOC0xOC04LjA1OS0xOC0xOC0xOHoiIHN0cm9rZT0iI2YzYjg0YyIgc3Ryb2tlLW9wYWNpdHk9Ii4xIiBzdHJva2Utd2lkdGg9IjIiLz48L2c+PC9zdmc+')] opacity-20" />
-        
+
         <div className="container relative mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 text-secondary mb-6">
               <Users className="w-4 h-4" />
               <span className="text-sm font-medium">{alumni.length}+ Students</span>
             </div>
-            
+
             <h1 className="font-display text-4xl md:text-5xl font-bold text-primary-foreground mb-4">
               Alumni Directory
             </h1>
@@ -274,11 +296,10 @@ const Alumni = () => {
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
               <button
                 onClick={() => setSelectedBatch("All")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-                  selectedBatch === "All"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card border border-border hover:border-primary/50"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${selectedBatch === "All"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card border border-border hover:border-primary/50"
+                  }`}
               >
                 <Users className="w-4 h-4" />
                 All Batches
@@ -288,11 +309,10 @@ const Alumni = () => {
                 <button
                   key={stat.batch}
                   onClick={() => setSelectedBatch(stat.batch)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-                    selectedBatch === stat.batch
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card border border-border hover:border-primary/50"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${selectedBatch === stat.batch
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card border border-border hover:border-primary/50"
+                    }`}
                 >
                   <Calendar className="w-4 h-4" />
                   Batch {stat.batch}
@@ -347,12 +367,12 @@ const Alumni = () => {
                   Showing {filteredAlumni.length} of {alumni.length} students
                 </Badge>
               </div>
-              
+
               {/* Group by batch */}
               {(selectedBatch === "All" ? batches : [selectedBatch]).map((batch) => {
                 const batchAlumni = filteredAlumni.filter(a => a.batch === batch);
                 if (batchAlumni.length === 0) return null;
-                
+
                 return (
                   <div key={batch} className="mb-12">
                     <div className="flex items-center gap-3 mb-6">
@@ -368,17 +388,30 @@ const Alumni = () => {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                       {batchAlumni.map((a, index) => (
-                        <Card 
+                        <Card
                           key={`${a.batch}-${a.rollNo}`}
                           className="group hover:shadow-medium transition-all duration-300 hover:-translate-y-1 animate-scale-in border-border"
                           style={{ animationDelay: `${Math.min(index * 0.02, 0.5)}s` }}
                         >
                           <CardHeader className="pb-3">
-                            <div className="w-12 h-12 rounded-full gradient-hero flex items-center justify-center text-secondary font-display font-bold text-lg">
-                              {a.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
+                            <div className="w-12 h-12 rounded-full overflow-hidden gradient-hero flex items-center justify-center text-secondary font-display font-bold text-lg">
+                              {a.photo ? (
+                                <img
+                                  src={a.photo}
+                                  alt={a.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.classList.remove('overflow-hidden');
+                                    (e.target as HTMLImageElement).parentElement!.innerText = a.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
+                                  }}
+                                />
+                              ) : (
+                                a.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()
+                              )}
                             </div>
                             <div className="mt-3">
                               <p className="text-xs text-muted-foreground font-mono mb-1">{a.rollNo}</p>
@@ -392,7 +425,7 @@ const Alumni = () => {
                               {a.email && (
                                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
                                   <Mail className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                  <a 
+                                  <a
                                     href={`mailto:${a.email}`}
                                     className="hover:text-primary transition-colors break-all"
                                   >
@@ -412,7 +445,7 @@ const Alumni = () => {
           )}
 
           {/* Info Card */}
-          
+
         </div>
       </section>
     </div>
