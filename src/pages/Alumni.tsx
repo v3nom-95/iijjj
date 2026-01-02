@@ -45,8 +45,9 @@ const Alumni = () => {
   const fetchAlumniDirect = async () => {
     try {
       console.log('Fetching alumni directly from Google Sheets...');
-      const INDEX_SHEET_ID = '1qLdxrFRnIdFu49bfLdXB9adk5TstMzC8Q3CuMHYM_6w';
-      const indexCsvUrl = `https://docs.google.com/spreadsheets/d/${INDEX_SHEET_ID}/export?format=csv&gid=363842358`;
+      const INDEX_SHEET_ID = '15levddFZV4KJov4wey-osN5Ul4Dzc7UYEH2Gb0Z83i8';
+      // GID 0 is the index sheet
+      const indexCsvUrl = `https://docs.google.com/spreadsheets/d/${INDEX_SHEET_ID}/export?format=csv&gid=0`;
 
       const indexResponse = await fetch(indexCsvUrl);
       if (!indexResponse.ok) {
@@ -57,36 +58,57 @@ const Alumni = () => {
       const indexCsv = await indexResponse.text();
       console.log('Index CSV fetched, parsing...');
 
-      const lines = indexCsv.split('\n');
-      let fixedLines = [];
-      let i = 0;
-      while (i < lines.length) {
-        let line = lines[i];
-        // Join multiline URLs
-        while (i + 1 < lines.length) {
-          const nextLine = lines[i + 1];
-          const isContinuation = nextLine && !nextLine.includes(',') && !nextLine.match(/^\w+,/);
-          if (isContinuation) {
-            line += nextLine;
-            i++;
+      // Robust CSV parsing helper
+      const parseCSV = (text: string) => {
+        const rows: string[][] = [];
+        let currentRow: string[] = [];
+        let currentVal = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          const nextChar = text[i + 1];
+
+          if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+              currentVal += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === ',' && !inQuotes) {
+            currentRow.push(currentVal.trim());
+            currentVal = '';
+          } else if ((char === '\r' || char === '\n') && !inQuotes) {
+            if (char === '\r' && nextChar === '\n') i++;
+            currentRow.push(currentVal.trim());
+            if (currentRow.length > 0 && currentRow.some(c => c)) rows.push(currentRow);
+            currentRow = [];
+            currentVal = '';
           } else {
-            break;
+            currentVal += char;
           }
         }
-        fixedLines.push(line);
-        i++;
-      }
+        if (currentVal || currentRow.length > 0) {
+          currentRow.push(currentVal.trim());
+          if (currentRow.length > 0 && currentRow.some(c => c)) rows.push(currentRow);
+        }
+        return rows;
+      };
 
-      const batchLines = fixedLines.filter(l => l.trim());
+      const indexRows = parseCSV(indexCsv);
       const allAlumni: Alumni[] = [];
 
-      // Parse batches and fetch each
-      for (let i = 1; i < batchLines.length; i++) {
-        const parts = batchLines[i].split(',');
-        const batch = parts[0]?.trim();
-        const sheetUrl = parts[1]?.trim();
+      // Iterate over index rows (skip header if present)
+      // Expecting: Batch, Link
+      for (let i = 0; i < indexRows.length; i++) {
+        const row = indexRows[i];
+        const batch = row[0]?.trim();
+        const sheetUrl = row[1]?.trim();
 
+        // Check if it's a valid batch row
         if (!batch || !sheetUrl || !sheetUrl.includes('docs.google.com')) continue;
+        if (batch.toLowerCase() === 'batch') continue; // Skip header
 
         try {
           const sheetIdMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -98,24 +120,25 @@ const Alumni = () => {
           const gid = gidMatch ? gidMatch[1] : '0';
 
           const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+          // console.log(`Fetching batch ${batch} data from ${csvUrl}`);
           const csvResponse = await fetch(csvUrl);
           if (!csvResponse.ok) continue;
 
           const csvText = await csvResponse.text();
-          const dataLines = csvText.split('\n').filter(l => l.trim());
+          const dataRows = parseCSV(csvText);
 
-          // Find header row
+          // Parse student data from this batch sheet
           let headerIdx = 0;
-          for (let j = 0; j < Math.min(5, dataLines.length); j++) {
-            if (dataLines[j].toLowerCase().includes('roll') || dataLines[j].toLowerCase().includes('name')) {
+          for (let j = 0; j < Math.min(5, dataRows.length); j++) {
+            const rowStr = dataRows[j].join(',').toLowerCase();
+            if (rowStr.includes('roll') || rowStr.includes('name')) {
               headerIdx = j;
               break;
             }
           }
 
-          const headers = dataLines[headerIdx].split(',').map(h => h.toLowerCase().trim());
+          const headers = dataRows[headerIdx].map(h => h.toLowerCase().trim());
           let rollNoIdx = -1, nameIdx = -1, emailIdx = -1, photoIdx = -1, linkedinIdx = -1, statusIdx = -1;
-
           for (let k = 0; k < headers.length; k++) {
             const h = headers[k];
             if (h.includes('roll') || h.includes('no')) rollNoIdx = k;
@@ -126,13 +149,14 @@ const Alumni = () => {
             if (h.includes('status') || h.includes('current') || h.includes('position')) statusIdx = k;
           }
 
-          // Parse students
-          for (let j = headerIdx + 1; j < dataLines.length; j++) {
-            const columns = dataLines[j].split(',');
+          for (let j = headerIdx + 1; j < dataRows.length; j++) {
+            const columns = dataRows[j];
             const rollNo = rollNoIdx >= 0 && columns[rollNoIdx] ? columns[rollNoIdx].trim() : '';
             const name = nameIdx >= 0 && columns[nameIdx] ? columns[nameIdx].trim() : '';
             const email = emailIdx >= 0 && columns[emailIdx] ? columns[emailIdx].trim() : '';
             let photo = photoIdx >= 0 && columns[photoIdx] ? columns[photoIdx].trim() : '';
+            const linkedin = linkedinIdx >= 0 && columns[linkedinIdx] ? columns[linkedinIdx].trim() : '';
+            const status = statusIdx >= 0 && columns[statusIdx] ? columns[statusIdx].trim() : '';
 
             if (photo && (photo.includes('drive.google.com') || photo.includes('docs.google.com'))) {
               const idMatch = photo.match(/[-\w]{25,}/);
@@ -141,82 +165,20 @@ const Alumni = () => {
               }
             }
 
-            if (!rollNo || !name) continue;
+            if (!rollNo && !name) continue;
 
             allAlumni.push({
-              rollNo,
-              name,
+              rollNo: rollNo || 'N/A',
+              name: name || 'Unknown Alumni',
               email: email || '',
-              batch,
-              photo: photo || undefined
+              batch: batch, // Use the batch from the index sheet
+              photo: photo || undefined,
+              linkedin: linkedin || undefined,
+              status: status || undefined
             });
           }
-
-          console.log(`Fetched ${allAlumni.filter(a => a.batch === batch).length} students from batch ${batch}`);
         } catch (err) {
           console.error(`Error fetching batch ${batch}:`, err);
-        }
-      }
-
-      // If no batches were found/parsed, try parsing the index CSV itself as data
-      if (allAlumni.length === 0 && batchLines.length > 0) {
-        console.log("No external batches found, parsing index sheet as data...");
-
-        // Reuse the logic? Just parse manually to ensure access to helper vars
-        const dataLines = fixedLines.filter(l => l.trim());
-        let headerIdx = 0;
-        for (let j = 0; j < Math.min(5, dataLines.length); j++) {
-          if (dataLines[j].toLowerCase().includes('roll') || dataLines[j].toLowerCase().includes('name')) {
-            headerIdx = j;
-            break;
-          }
-        }
-
-        const headers = dataLines[headerIdx].split(',').map(h => h.toLowerCase().trim());
-        let rollNoIdx = -1, nameIdx = -1, emailIdx = -1, photoIdx = -1, linkedinIdx = -1, statusIdx = -1;
-        for (let k = 0; k < headers.length; k++) {
-          const h = headers[k];
-          if (h.includes('roll') || h.includes('no')) rollNoIdx = k;
-          if (h.includes('name')) nameIdx = k;
-          if (h.includes('email')) emailIdx = k;
-          if (h.includes('photo')) photoIdx = k;
-          if (h.includes('linkedin')) linkedinIdx = k;
-          if (h.includes('status') || h.includes('current') || h.includes('position')) statusIdx = k;
-        }
-
-        for (let j = headerIdx + 1; j < dataLines.length; j++) {
-          const columns = dataLines[j].split(',');
-          const rollNo = rollNoIdx >= 0 && columns[rollNoIdx] ? columns[rollNoIdx].trim() : '';
-          const name = nameIdx >= 0 && columns[nameIdx] ? columns[nameIdx].trim() : '';
-          const email = emailIdx >= 0 && columns[emailIdx] ? columns[emailIdx].trim() : '';
-          let photo = photoIdx >= 0 && columns[photoIdx] ? columns[photoIdx].trim() : '';
-          const linkedin = linkedinIdx >= 0 && columns[linkedinIdx] ? columns[linkedinIdx].trim() : '';
-          const status = statusIdx >= 0 && columns[statusIdx] ? columns[statusIdx].trim() : '';
-
-          if (photo && (photo.includes('drive.google.com') || photo.includes('docs.google.com'))) {
-            const idMatch = photo.match(/[-\w]{25,}/);
-            if (idMatch) {
-              photo = `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w1000`;
-            }
-          }
-
-          if (!rollNo || !name) continue;
-
-          let derivedBatch = 'Unknown';
-          const batchMatch = rollNo.match(/^(\d{2})/);
-          if (batchMatch) {
-            derivedBatch = '20' + batchMatch[1];
-          }
-
-          allAlumni.push({
-            rollNo,
-            name,
-            email: email || '',
-            batch: derivedBatch,
-            photo: photo || undefined,
-            linkedin: linkedin || undefined,
-            status: status || undefined
-          });
         }
       }
 

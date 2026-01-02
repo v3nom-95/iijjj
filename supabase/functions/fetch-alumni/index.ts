@@ -6,8 +6,8 @@ const corsHeaders = {
 };
 
 // Main index sheet with batch and links
-const INDEX_SHEET_ID = '1qLdxrFRnIdFu49bfLdXB9adk5TstMzC8Q3CuMHYM_6w';
-const INDEX_GID = '363842358';
+const INDEX_SHEET_ID = '15levddFZV4KJov4wey-osN5Ul4Dzc7UYEH2Gb0Z83i8';
+const INDEX_GID = '0';
 
 interface Alumni {
   rollNo: string;
@@ -216,21 +216,61 @@ async function fetchBatchData(batchInfo: BatchInfo): Promise<Alumni[]> {
 }
 
 function parseStudentData(csvText: string, batch: string): Alumni[] {
-  const lines = csvText.split('\n').filter(line => line.trim());
+  // Robust CSV parsing handling multiline quoted fields
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentVal = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote
+        currentVal += '"';
+        i++;
+      } else {
+        // Toggle quotes
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // Next cell
+      currentRow.push(currentVal.trim());
+      currentVal = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      // End of line (handle \r\n or \n)
+      if (char === '\r' && nextChar === '\n') i++;
+
+      currentRow.push(currentVal.trim());
+      if (currentRow.length > 0 && currentRow.some(c => c)) rows.push(currentRow);
+      currentRow = [];
+      currentVal = '';
+    } else {
+      currentVal += char;
+    }
+  }
+  if (currentVal || currentRow.length > 0) {
+    currentRow.push(currentVal.trim());
+    if (currentRow.length > 0 && currentRow.some(c => c)) rows.push(currentRow);
+  }
+
   const alumni: Alumni[] = [];
 
-  if (lines.length < 2) return [];
+  if (rows.length < 2) return [];
 
   // Find the header row (contains "Roll number" or "roll")
   let headerIdx = 0;
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
-    if (lines[i].toLowerCase().includes('roll') || lines[i].toLowerCase().includes('name')) {
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const rowStr = rows[i].join(',').toLowerCase();
+    if (rowStr.includes('roll') || rowStr.includes('name')) {
       headerIdx = i;
       break;
     }
   }
 
-  const headers = parseCSVLine(lines[headerIdx]).map(h => h.toLowerCase().trim());
+  const headers = rows[headerIdx].map(h => h.toLowerCase().trim());
 
   let rollNoIdx = -1, nameIdx = -1, emailIdx = -1, photoIdx = -1, linkedinIdx = -1, statusIdx = -1;
 
@@ -245,24 +285,43 @@ function parseStudentData(csvText: string, batch: string): Alumni[] {
   }
 
   console.log(`Batch ${batch} headers at line ${headerIdx}:`, headers);
-  console.log(`Indices - roll: ${rollNoIdx}, name: ${nameIdx}, email: ${emailIdx}, photo: ${photoIdx}, linkedin: ${linkedinIdx}, status: ${statusIdx}`);
 
-  for (let i = headerIdx + 1; i < lines.length; i++) {
-    const columns = parseCSVLine(lines[i]);
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const columns = rows[i];
 
     const rollNo = rollNoIdx >= 0 && columns[rollNoIdx] ? columns[rollNoIdx].trim() : '';
     const name = nameIdx >= 0 && columns[nameIdx] ? columns[nameIdx].trim() : '';
     const email = emailIdx >= 0 && columns[emailIdx] ? columns[emailIdx].trim() : '';
     const photo = photoIdx >= 0 && columns[photoIdx] ? columns[photoIdx].trim() : '';
+    const linkedin = linkedinIdx >= 0 && columns[linkedinIdx] ? columns[linkedinIdx].trim() : '';
+    const status = statusIdx >= 0 && columns[statusIdx] ? columns[statusIdx].trim() : '';
 
-    if (!rollNo || !name) continue;
+    if (!rollNo && !name) continue;
+
+    // Strict batch check: Only allow 2019, 2020, 2021 if deducing
+    let derivedBatch = batch;
+    if (batch === 'Unknown' || !batch) {
+      const batchMatch = rollNo.match(/^(\d{2})/);
+      if (batchMatch) {
+        const year = '20' + batchMatch[1];
+        // Only allow expected years acting as filter
+        if (['2019', '2020', '2021'].includes(year)) {
+          derivedBatch = year;
+        } else {
+          // Keep derived if valid looking, but mostly we expect 19/20/21
+          derivedBatch = year;
+        }
+      }
+    }
 
     alumni.push({
-      rollNo,
-      name,
+      rollNo: rollNo || 'N/A',
+      name: name || 'Unknown Alumni',
       email: email || '',
-      batch,
-      photo: transformDriveUrl(photo) || undefined
+      batch: derivedBatch,
+      photo: transformDriveUrl(photo) || undefined,
+      linkedin: linkedin || undefined,
+      status: status || undefined
     });
   }
 
@@ -271,6 +330,7 @@ function parseStudentData(csvText: string, batch: string): Alumni[] {
 }
 
 function parseCSVLine(line: string): string[] {
+  // Use robust line parser for backward compatibility if called individually
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -279,7 +339,12 @@ function parseCSVLine(line: string): string[] {
     const char = line[i];
 
     if (char === '"') {
-      inQuotes = !inQuotes;
+      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
     } else if (char === ',' && !inQuotes) {
       result.push(current);
       current = '';
